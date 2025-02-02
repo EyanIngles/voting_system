@@ -5,13 +5,28 @@ module flashloan::cetus_pool{
     use sui::tx_context::TxContext;
 
     use cetus_clmm_test::pool_creator::{create_pool_v2 as cetus_pool_create};
-    use cetus_clmm_test::config::{GlobalConfig as Config};
+    use cetus_clmm_test::config::{GlobalConfig as Config}; // globalConfig is created from cetus and it required us to pass the object id through.
     use cetus_clmm::factory::{Pools, InitFactoryEvent};
 
-    public fun test_create_pool<T0, T1>(){
+    public fun test_create_pool<T0, T1>(
+    pools: &mut Pools,
+    config: &GlobalConfig
+    tick_spacing: u32,
+    initialize_price: u128,
+    url: 0x1::string::String,
+    tick_lower_idx: u32,
+    tick_upper_idx: u32,
+    coin_metadata_a: Coin<T0>,
+    coin_metadata_b: Coin<T1>,
+    amount_coin_a: u64,
+    amount_coin_b: u64,
+    fix_amount_a: bool,
+    clock: &Clock,
+    ctx: &mut TxContext){
     const pool = test_create_new_pool();
     cetus_pool_create(
-        _config: &GlobalConfig,
+        config,
+
         )}
 
     fun test_create_new_pool():&mut Pool {

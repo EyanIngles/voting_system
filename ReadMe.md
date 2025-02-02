@@ -1,126 +1,179 @@
-# Firstly!
-This folder is going to be used for flashloans so with that we need to learn how pools are created, dealt with and swapped or flashloan with.
+# Flashloan Development Notes
 
-## Step 1:
-create a pool and a few functions to utilise the pools and fetching the data. 
-the below will be dot points on what i have learnt.
+This folder will be used for flashloan development. The goal is to understand how **pools** are created, managed, and utilized for **swaps** or **flashloan** operations. Below are detailed notes on the process, including pool creation, relevant structures, and functions.
 
-**OrderInfo** is created one a order is being placed, This order will check to see if there is any existing orders that match to do the swap desired and goes under the **Fill** process.
+---
 
-The **State** stores **Governance**, **History** and **Account**. It processes all requests, updating at least one of these stored structs.
+## **Step 1: Pool Creation & Utility Functions**
 
+To utilize flashloans and swaps, pools must first be created and managed effectively. Below are key insights on how pools work within the Cetus protocol.
 
+---
 
+### **Order Processing**
 
-# Smart voting system , asking permission by the holders to avoid scamming.
-## Thoughts
-What if we were to create a smart contract for our protocol and for us to fund or withdraw money from a treasury or liquidity pool, we need to ask the community for permission and then they are the ones to decide yes, no or how much...
+- **OrderInfo**:  
+  Created when an order is placed. It checks for matching existing orders to execute the desired swap. If a match is found, the swap enters the **Fill** process.
 
-**things to allow** should only have one proposal at a time, this means that the current proposal should be finalised and accepted, rejected or changed in terms of amount.
-changing something
+---
 
-# Cetus create_pool_v2 function
+### **State Management**
 
-```js
+The **State** struct manages:
+- **Governance**
+- **History**
+- **Accounts**
+
+It processes all requests by updating one or more of these components.
+
+---
+
+## **Smart Voting System Idea**
+
+For added security against scams, consider implementing a **smart contract-based voting system**. The system can require **permission from token holders** for actions such as:
+
+- Funding or withdrawing from a treasury or liquidity pool.
+  
+### **Proposed Rules:**
+- Only one proposal can be active at a time.
+- The current proposal must be finalized (accepted, rejected, or modified) before a new one can be created.
+- Community voting decides the outcome of proposals.
+
+---
+
+## **Pool Creation (`create_pool_v2`)**
+
+The **`create_pool_v2`** function is responsible for creating new pools with initial liquidity. Below is the function signature:
+
+```move
 public fun create_pool_v2<CoinTypeA, CoinTypeB>(
-        _config: &GlobalConfig,
-        _pools: &mut Pools,
-        _tick_spacing: u32,
-        _initialize_price: u128,
-        _url: String,
-        _tick_lower_idx: u32,
-        _tick_upper_idx: u32,
-        _coin_a: Coin<CoinTypeA>,
-        _coin_b: Coin<CoinTypeB>,
-        _metadata_a: &CoinMetadata<CoinTypeA>,
-        _metadata_b: &CoinMetadata<CoinTypeB>,
-        _fix_amount_a: bool,
-        _clock: &Clock,
-        _ctx: &mut TxContext
-    ):  (Position, Coin<CoinTypeA>, Coin<CoinTypeB>) {
-        abort 0
-    }
+    _config: &GlobalConfig,
+    _pools: &mut Pools,
+    _tick_spacing: u32,
+    _initialize_price: u128,
+    _url: String,
+    _tick_lower_idx: u32,
+    _tick_upper_idx: u32,
+    _coin_a: Coin<CoinTypeA>,
+    _coin_b: Coin<CoinTypeB>,
+    _metadata_a: &CoinMetadata<CoinTypeA>,
+    _metadata_b: &CoinMetadata<CoinTypeB>,
+    _fix_amount_a: bool,
+    _clock: &Clock,
+    _ctx: &mut TxContext
+): (Position, Coin<CoinTypeA>, Coin<CoinTypeB>)
 ```
 
+---
 
-the pool struct that seems to be required is;
-```js
-/// The clmmpool
+## **Pool Struct**
+
+The **Pool** struct contains key information about each liquidity pool:
+
+```move
 struct Pool<phantom CoinTypeA, phantom CoinTypeB> has key, store {
     id: UID,
-
     coin_a: Balance<CoinTypeA>,
     coin_b: Balance<CoinTypeB>,
-
-    /// The tick spacing
     tick_spacing: u32,
-
-    /// The numerator of fee rate, the denominator is 1_000_000.
     fee_rate: u64,
-
-    /// The liquidity of current tick index
     liquidity: u128,
-
-    /// The current sqrt price
     current_sqrt_price: u128,
-
-    /// The current tick index
     current_tick_index: I32,
-
-    /// The global fee growth of coin a,b as Q64.64
     fee_growth_global_a: u128,
     fee_growth_global_b: u128,
-
-    /// The amounts of coin a,b owned to protocol
     fee_protocol_coin_a: u64,
     fee_protocol_coin_b: u64,
-
-    /// The tick manager
     tick_manager: TickManager,
-
-    /// The rewarder manager
     rewarder_manager: RewarderManager,
-
-    /// The position manager
     position_manager: PositionManager,
-
-    /// is the pool pause
     is_pause: bool,
-
-    /// The pool index
     index: u64,
-
-    /// The url for pool and postion
-    url: String,
-
+    url: String
 }
 ```
 
+---
 
-# the following is the pool create function 
-```js 
-/// Create a new pool, it only allow call by factory module.
-    /// params
-    ///     - `tick_spacing` We use tick to represent a discrete set of prices, and tick_spacing controls
-    /// the density of the discrete price points.
-    ///     - `init_sqrt_price` The clmmpool's initialize sqrt price. To facilitate calculation,
-    /// clmmpool stores the square root of prices. Can I assist you with anything else?
-    ///     - `fee_rate` The clmmpool's fee rate. Actually, the numerator of the fee rate is expressed in units,
-    /// while the denominator is always 1,000,000. For example, 1000 represents 0.1% or 1000/1000000.
-    ///     - `index` The "index" only affects the position names within the `clmmpool`, and these names are for
-    /// display purposes only.
-    ///     - `clock` The CLOCK of sui framework, we use it to set rand seed of skip list.
-    ///     - `ctx` The TxContext
-    public(friend) fun new<CoinTypeA, CoinTypeB>(
-        _tick_spacing: u32,
-        _init_sqrt_price: u128,
-        _fee_rate: u64,
-        _url: String,
-        _index: u64,
-        _clock: &Clock,
-        _ctx: &mut TxContext
-    ): Pool<CoinTypeA, CoinTypeB> {
-        abort 0
-    }
+## **Pool Initialization (`new`)**
 
+The `new` function initializes a new pool. This function is typically restricted to the **factory module**.
+
+```move
+public(friend) fun new<CoinTypeA, CoinTypeB>(
+    _tick_spacing: u32,
+    _init_sqrt_price: u128,
+    _fee_rate: u64,
+    _url: String,
+    _index: u64,
+    _clock: &Clock,
+    _ctx: &mut TxContext
+): Pool<CoinTypeA, CoinTypeB>
 ```
+
+### **Parameter Descriptions:**
+- **`tick_spacing`**:  
+  Controls the density of price points. Smaller values allow for more precise price ranges but increase gas costs.
+  
+- **`init_sqrt_price`**:  
+  The initial square root price for the pool. This simplifies price calculations within the protocol.
+
+- **`fee_rate`**:  
+  The pool's fee rate. It's expressed as a numerator with a denominator of `1,000,000`. For example, a fee rate of `1000` represents **0.1%** (1000 / 1,000,000).
+
+- **`index`**:  
+  Used for position tracking and display purposes within the pool.
+
+---
+
+## **Tick Management**
+
+Ticks define the range within which liquidity is active. You must set **`tick_lower_idx`** and **`tick_upper_idx`** to define this range during pool creation.
+
+### **Suggested Tick Values for Testing:**
+
+1. **Tick Spacing (`tick_spacing`)**:  
+   - Suggested values: `500` to `1000`.  
+   - Higher values are used for volatile assets to prevent excessive gas usage from frequent price updates.
+
+2. **Lower Tick (`tick_lower_idx`)**:  
+   - Suggested values: `0` to `100`.  
+   - This defines the lowest price point where liquidity remains active.
+
+3. **Upper Tick (`tick_upper_idx`)**:  
+   - Suggested values: `1000` to `10,000`.  
+   - This defines the highest price point where liquidity remains active.
+
+---
+
+### **Example Usage**
+```move
+let tick_spacing = 500;
+let tick_lower_idx = 0;       // Start of the range
+let tick_upper_idx = 10_000;  // End of the range
+
+let (position, remaining_coin_a, remaining_coin_b) = create_pool_with_liquidity(
+    &mut pools,
+    &global_config,
+    tick_spacing,
+    initialize_price,
+    url,
+    tick_lower_idx,
+    tick_upper_idx,
+    coin_a,
+    coin_b,
+    amount_a,
+    amount_b,
+    fix_amount_a,
+    &clock,
+    &mut ctx
+);
+```
+
+---
+
+## **Summary**
+
+- The **`create_pool_v2`** function initializes a pool with liquidity and parameters like tick spacing, initial price, and fee rates.
+- Ticks define where your liquidity is active within the pool.
+- Setting appropriate tick values is crucial to maximizing fee earnings and maintaining active liquidity.
